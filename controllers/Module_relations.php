@@ -128,11 +128,10 @@ class Module_relations extends Trongate {
             }
 
             //get rid of junk columns
-            $data = [];
             foreach($rows as $row) {
                 $row_data['id'] = $row->id;
                 $row_data['value'] = $row->value;
-                $data = (array) $row_data;
+                $data[] = (array) $row_data;
             }
 
         }
