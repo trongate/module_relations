@@ -107,14 +107,24 @@ class Module_relations extends Trongate {
 
             $this->_make_sure_table_exists($relation_name, $first_module->module_name, $second_module->module_name);
 
-            $sql = 'SELECT '.$relation_name.'.id, '.$alt_module_table.'.'.$identifier_column.' as value  
+            $sql = 'SELECT '.$relation_name.'.id, '.$alt_module_table.'.* 
                     FROM '.$relation_name.'  
                     INNER JOIN '.$alt_module_table.'  
                     ON '.$relation_name.'.'.$foreign_key.' = '.$alt_module_table.'.id 
                     WHERE '.$relation_name.'.'.$calling_module_name.'_id = '.$update_id.' 
                     ORDER BY '.$alt_module_table.'.'.$identifier_column;
-
             $rows = $this->model->query($sql, 'object');
+            $bits =  explode(',', $identifier_column);
+
+            foreach($rows as $row_key=>$row_value) {
+                $value = '';
+                foreach($bits as $bit) {
+                    $bit = trim($bit);
+                    $value.= $row_value->$bit.' ';
+                }
+
+                $rows[$row_key]->value = trim($value);
+            }
         }
 
         echo json_encode($rows);
