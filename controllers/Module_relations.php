@@ -93,7 +93,7 @@ class Module_relations extends Trongate {
             $foreign_key = $parent_module_name.'_id';
             $params['update_id'] = $update_id;
             $sql = 'select id, '.$identifier_column.' as value  from '.$child_module->module_name.' where '.$foreign_key.'=:update_id';
-            $rows = $this->model->query_bind($sql, $params, 'object');
+            $data = $this->model->query_bind($sql, $params, 'object');
         } else {
             if ($first_module->module_name == $calling_module_name) {
                 $associated_module = $second_module;
@@ -107,14 +107,14 @@ class Module_relations extends Trongate {
 
             $this->_make_sure_table_exists($relation_name, $first_module->module_name, $second_module->module_name);
 
-            $sql = 'SELECT '.$relation_name.'.id, '.$alt_module_table.'.* 
+            $bits =  explode(',', $identifier_column);
+            $sql = 'SELECT '.$relation_name.'.id as __id, '.$alt_module_table.'.* 
                     FROM '.$relation_name.'  
                     INNER JOIN '.$alt_module_table.'  
                     ON '.$relation_name.'.'.$foreign_key.' = '.$alt_module_table.'.id 
                     WHERE '.$relation_name.'.'.$calling_module_name.'_id = '.$update_id.' 
-                    ORDER BY '.$alt_module_table.'.'.$identifier_column;
+                    ORDER BY '.$alt_module_table.'.'.$bits[0];
             $rows = $this->model->query($sql, 'object');
-            $bits =  explode(',', $identifier_column);
 
             foreach($rows as $row_key=>$row_value) {
                 $value = '';
@@ -124,10 +124,24 @@ class Module_relations extends Trongate {
                 }
 
                 $rows[$row_key]->value = trim($value);
+                $rows[$row_key]->id = $rows[$row_key]->__id;
             }
+
+            //get rid of junk columns
+            $data = [];
+            foreach($rows as $row) {
+                $row_data['id'] = $row->id;
+                $row_data['value'] = $row->value;
+                $data = (array) $row_data;
+            }
+
         }
 
-        echo json_encode($rows);
+        if (!isset($data)) {
+            $data = [];
+        }
+
+        echo json_encode($data);
         die();
     }
 
