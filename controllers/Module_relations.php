@@ -108,12 +108,13 @@ class Module_relations extends Trongate {
             $this->_make_sure_table_exists($relation_name, $first_module->module_name, $second_module->module_name);
 
             $bits =  explode(',', $identifier_column);
+            $num_bits = count($bits);
             $sql = 'SELECT '.$relation_name.'.id as __id, '.$alt_module_table.'.* 
                     FROM '.$relation_name.'  
                     INNER JOIN '.$alt_module_table.'  
                     ON '.$relation_name.'.'.$foreign_key.' = '.$alt_module_table.'.id 
                     WHERE '.$relation_name.'.'.$calling_module_name.'_id = '.$update_id.' 
-                    ORDER BY '.$alt_module_table.'.'.$bits[0];
+                    ORDER BY '.$alt_module_table.'.'.$bits[$num_bits-1];
             $rows = $this->model->query($sql, 'object');
 
             foreach($rows as $row_key=>$row_value) {
@@ -327,38 +328,7 @@ class Module_relations extends Trongate {
         die();
     }
 
-    function _fetch_available_one_to_many($posted_data) {
-
-        /*
-
-            SAMPLE DATA...
-
-                {
-                  "updateId": "1",
-                  "relationName": "associated_drivers_and_licenses",
-                  "results": [],
-                  "callingModule": "drivers",
-                  "alt_module_name": "licenses",
-                  "relation_settings": [
-                    {
-                      "module_name": "drivers",
-                      "record_name_singular": "driver",
-                      "record_name_plural": "drivers",
-                      "identifier_column": "last_name"
-                    },
-                    {
-                      "module_name": "licenses",
-                      "record_name_singular": "license",
-                      "record_name_plural": "licenses",
-                      "identifier_column": "license_number"
-                    },
-                    {
-                      "relationship_type": "one to many"
-                    }
-                  ]
-                }
-
-        */
+    function _fetch_available_one_to_manyX($posted_data) {
 
         extract($posted_data);
 
@@ -397,26 +367,26 @@ class Module_relations extends Trongate {
         return $available_records;
     }
 
-    function _fetch_available_for_child($parent_module) {
-        $identifier_column = $parent_module->identifier_column;
-        $sql = 'SELECT drivers.id, drivers.last_name   from drivers   
-                LEFT JOIN licenses ON drivers.id = licenses.drivers_id 
-                UNION
-                SELECT drivers.id, drivers.last_name FROM drivers
-                RIGHT JOIN licenses ON drivers.id = licenses.drivers_id  
-                WHERE drivers.last_name !=\'\'
-                ORDER BY `last_name` ASC';
-        $results = $this->model->query($sql, 'object');
+    // function _fetch_available_for_child($parent_module) {
+    //     $identifier_column = $parent_module->identifier_column;
+    //     $sql = 'SELECT drivers.id, drivers.last_name   from drivers   
+    //             LEFT JOIN licenses ON drivers.id = licenses.drivers_id 
+    //             UNION
+    //             SELECT drivers.id, drivers.last_name FROM drivers
+    //             RIGHT JOIN licenses ON drivers.id = licenses.drivers_id  
+    //             WHERE drivers.last_name !=\'\'
+    //             ORDER BY `last_name` ASC';
+    //     $results = $this->model->query($sql, 'object');
 
-        $available_records = [];
-        foreach($results as $result) {
-            $row_data['key'] = $result->id;
-            $row_data['value'] = $result->$identifier_column;
-            $available_records[] = $row_data;
-        }
+    //     $available_records = [];
+    //     foreach($results as $result) {
+    //         $row_data['key'] = $result->id;
+    //         $row_data['value'] = $result->$identifier_column;
+    //         $available_records[] = $row_data;
+    //     }
 
-        return $available_records;
-    }
+    //     return $available_records;
+    // }
 
     function _fetch_options($selected_key, $calling_module_name, $alt_module_name) {
 
