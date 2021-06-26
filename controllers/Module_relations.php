@@ -250,12 +250,11 @@ class Module_relations extends Trongate {
             echo '[]'; //no results available since already have associated record
             die();
         } else {
-            //fetch all from alt_module
+            //fetchx all from alt_module
             $all_alt_records = $this->model->get('id', $alt_module_name);
 
             //get the identifier_column from the alt_module
             $associated_module_obj = $this->_get_associated_module($callingModule, $relation_settings);
-
             $identifier_column = $associated_module_obj->identifier_column;
             $bits = explode(',', $identifier_column);
 
@@ -289,17 +288,25 @@ class Module_relations extends Trongate {
 
     function _fetch_available_many_to_many($posted_data) {
         extract($posted_data);
-        //fetch all from alt_module
+        //fetchx all from alt_module
         $all_alt_records = $this->model->get('id', $alt_module_name);
 
         //get the identifier_column from the alt_module
         $associated_module_obj = $this->_get_associated_module($callingModule, $relation_settings);
         $identifier_column = $associated_module_obj->identifier_column;
+        $bits = explode(',', $identifier_column);
 
         $available_records = []; //start a new array of available records
         foreach($all_alt_records as $alt_record) {
+            $identifier_column_str = '';
             $row_data['key'] = $alt_record->id;
-            $row_data['value'] = $alt_record->$identifier_column;
+
+            foreach($bits as $bit) {
+                $identifier_column_str.= $alt_record->$bit.' ';
+            }
+
+            $identifier_column_str = trim($identifier_column_str);
+            $row_data['value'] = $identifier_column_str;
             $available_records[$alt_record->id] = $row_data;
         }
 
