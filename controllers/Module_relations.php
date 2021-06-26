@@ -468,6 +468,7 @@ class Module_relations extends Trongate {
     }
 
     function _get_parent_options($parent_module_name, $identifier_column, $selected_key) {
+
         $options = [];
         $sql = 'select id, '.$identifier_column.' from '.$parent_module_name.' order by '.$identifier_column;
         $rows = $this->model->query($sql, 'object');
@@ -476,12 +477,23 @@ class Module_relations extends Trongate {
             $options[''] = 'Select...';
         }
 
+        $bits =  explode(',', $identifier_column);
+
         foreach ($rows as $row) {
+            $identifier_column_str = '';
+
+            foreach($bits as $bit) {
+                $bit = trim($bit);
+                $identifier_column_str.= $row->$bit.' ';
+            }
+
+            $identifier_column_str = trim($identifier_column_str);
+
             if ($selected_key == $row->id) {
-                $options[0] = strtoupper('*** Disassociate with '.$row->$identifier_column.' ***');
-                $options[$selected_key] = $row->$identifier_column;
+                $options[0] = strtoupper('*** Disassociate with '.$identifier_column_str.' ***');
+                $options[$selected_key] = $identifier_column_str;
             } else {
-                $options[$row->id] = $row->$identifier_column;
+                $options[$row->id] = $identifier_column_str;
             }
         }
 
