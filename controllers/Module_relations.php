@@ -235,10 +235,8 @@ class Module_relations extends Trongate {
             case 'many to many':
                 $this->_fetch_available_many_to_many($posted_data);
                 break;
-            
             default:
                 $this->_fetch_available_one_to_many($posted_data);
-                break;
         }
 
         die();
@@ -251,7 +249,7 @@ class Module_relations extends Trongate {
             echo '[]'; //no results available since already have associated record
             die();
         } else {
-            //fetchx all from alt_module
+            //fetch all from alt_module
             $all_alt_records = $this->model->get('id', $alt_module_name);
 
             //get the identifier_column from the alt_module
@@ -289,7 +287,7 @@ class Module_relations extends Trongate {
 
     function _fetch_available_many_to_many($posted_data) {
         extract($posted_data);
-        //fetchx all from alt_module
+        //fetch all from alt_module
         $all_alt_records = $this->model->get('id', $alt_module_name);
 
         //get the identifier_column from the alt_module
@@ -328,65 +326,64 @@ class Module_relations extends Trongate {
         die();
     }
 
-    function _fetch_available_one_to_manyX($posted_data) {
-
-        extract($posted_data);
-
-        //is the calling module the parent or child?
-        $calling_module_name = $callingModule;
-        $parent_module_name = $relation_settings[0]->module_name;
-        $parent_module = $relation_settings[0];
-        $child_module = $relation_settings[1];
-        $child_module->foreign_key = $parent_module_name.'_id';
-
-        if ($parent_module_name == $calling_module_name) {          
-            $available_records = $this->_fetch_available_for_parent($child_module);
-        } else {
-            $available_records = $this->_fetch_available_for_child($parent_module);
-        }
-
-        http_response_code(200);
-        echo json_encode($available_records);
-        die();
+    function _make_safe($str) {
+        $str = url_title(strip_tags(trim($str)));
+        $str = str_replace('-', '_', $str);
+        return $str;
     }
 
-    function _fetch_available_for_parent($child_module) {
-        $foreign_key = $child_module->foreign_key;
-        $identifier_column = $child_module->identifier_column;
-        $sql = 'SELECT * from '.$child_module->module_name.' WHERE '.$foreign_key.'=0 ';
-        $sql.= 'ORDER BY '.$identifier_column;
-        $results = $this->model->query($sql, 'object');
+    function _fetch_available_one_to_many($posted_data) {
+        //let's assume that this is the parent making the call
+        $relation_settings = $posted_data['relation_settings'];
+        $relation_name = $posted_data['relationName']; //associated_a_and_b
+        $parts = explode('_and_', $relation_name);
+        $parent_module = $posted_data['callingModule'];
+        $child_module = $this->_make_safe($parts[count($parts)-1]);
+        $target_column = $this->_make_safe($parent_module.'_id');
 
-        $available_records = [];
-        foreach($results as $result) {
-            $row_data['key'] = $result->id;
-            $row_data['value'] = $result->$identifier_column;
-            $available_records[] = $row_data;
+        $relation_settings = $posted_data['relation_settings'];
+        $identifier_column = $relation_settings[1]->identifier_column;
+        $bits = explode(',', $identifier_column);
+        $order_by = $bits[count($bits)-1];
+
+        $sql = 'SELECT
+                    [child_module].* 
+                FROM
+                    [parent_module]
+                RIGHT JOIN
+                    [child_module]
+                ON
+                    [parent_module].id = [child_module].[target_column]
+                WHERE
+                    [parent_module].id IS NULL 
+                ORDER BY [child_module].'.$order_by;
+
+        $sql = str_replace('[child_module]', $child_module, $sql);
+        $sql = str_replace('[parent_module]', $parent_module, $sql);
+        $sql = str_replace('[target_column]', $target_column, $sql);
+
+        $rows = $this->model->query($sql, 'object');
+
+        foreach($rows as $row) {
+            $identifier_column_str = '';
+            $row_data['key'] = $row->id;
+            foreach($bits as $bit) {
+                $bit = trim($bit);
+                $identifier_column_str.= $row->$bit.' ';
+            }
+
+            $identifier_column_str = trim($identifier_column_str);
+            $row_data['value'] = $identifier_column_str;
+            $available_records[$row->id] = $row_data;
+            $available_records = array_values($available_records);
         }
 
-        return $available_records;
+        if (!isset($available_records)) {
+            $available_records = [];
+        }
+
+        echo json_encode($available_records); die();
     }
-
-    // function _fetch_available_for_child($parent_module) {
-    //     $identifier_column = $parent_module->identifier_column;
-    //     $sql = 'SELECT drivers.id, drivers.last_name   from drivers   
-    //             LEFT JOIN licenses ON drivers.id = licenses.drivers_id 
-    //             UNION
-    //             SELECT drivers.id, drivers.last_name FROM drivers
-    //             RIGHT JOIN licenses ON drivers.id = licenses.drivers_id  
-    //             WHERE drivers.last_name !=\'\'
-    //             ORDER BY `last_name` ASC';
-    //     $results = $this->model->query($sql, 'object');
-
-    //     $available_records = [];
-    //     foreach($results as $result) {
-    //         $row_data['key'] = $result->id;
-    //         $row_data['value'] = $result->$identifier_column;
-    //         $available_records[] = $row_data;
-    //     }
-
-    //     return $available_records;
-    // }
 
     function _fetch_options($selected_key, $calling_module_name, $alt_module_name) {
 
