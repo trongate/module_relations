@@ -65,6 +65,7 @@ class Module_relations extends Trongate {
     }
 
     function fetch_associated_records() {
+        api_auth();
         $posted_data = $this->_get_posted_data();
 
         $data['relation_name'] = $this->_make_safe($posted_data['relationName'], false);
@@ -173,6 +174,7 @@ class Module_relations extends Trongate {
     }
 
     function fetch_available_options() {
+        api_auth();
         $posted_data = $this->_get_posted_data();
 
         if (!is_numeric($posted_data['updateId'])) {
@@ -310,7 +312,7 @@ class Module_relations extends Trongate {
     }
 
     function submit() {
-        //api_auth();
+        api_auth();
         $posted_data = $this->_get_posted_data();
         $update_id = $posted_data['updateId'];
 
@@ -371,7 +373,6 @@ class Module_relations extends Trongate {
     }
 
     function _fetch_options($selected_key, $calling_module_name, $alt_module_name) {
-
         $options = [];
 
         if (($selected_key == '') || ($selected_key == 0) || ($selected_key == '0')) {
@@ -391,25 +392,32 @@ class Module_relations extends Trongate {
 
         $relationship_type = $relation_settings[2]->relationship_type;
 
+        $bits =  explode(',', $identifier_column);
+        $order_by = $this->_est_order_by($bits);
+
         if ($relationship_type == 'one to many') {
             $options = $this->_get_parent_options($alt_module_name, $identifier_column, $selected_key); 
         } else {
 
-            $sql = 'select id, '.$identifier_column.', '.$foreign_key.' from '.$alt_module_name.' order by '.$identifier_column;
+            $sql = 'select * from '.$alt_module_name.' order by '.$order_by;
             $rows = $this->model->query($sql, 'object');
 
-            foreach ($rows as $row) {
-
-                if ($row->$foreign_key == 0) {
-                    $row_desc = $row->$identifier_column;
-                    $options[$row->id] = $row_desc;
+            foreach($rows as $row) {
+                $row_data['key'] = $row->id;
+                $value = '';
+                foreach($bits as $bit) {
+                    $bit = trim($bit);
+                    $value.= $row->$bit.' ';
                 }
 
+                $row_desc = trim($value);
+                $options[$row->id] = $row_desc;
+
                 if ($selected_key == $row->id) {
-                    $first_option[] = $row->$identifier_column;
-                    $row_label = $row->$identifier_column;
-                    $options[$selected_key] = $row_label;
+                    $row_label = $value;
                     $options[0] = strtoupper('*** Disassociate with '.$row_label.' ***');
+                } else {
+
                 }
 
             }
