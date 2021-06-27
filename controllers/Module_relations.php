@@ -76,18 +76,67 @@ class Module_relations extends Trongate {
         $relation_settings = $this->_get_relation_settings($data['calling_module'], $data['alt_module']);
         $associated_module = $this->_est_associated_module($relation_settings, $data['calling_module']);
         $data['identifier_column'] = $associated_module->identifier_column;
-        $associated_records = $this->_fetch_from_assoc_tbl($data);
+        $data['bits'] = explode(',', $data['identifier_column']);
+
+        $relationship_type =  $relation_settings[2]->relationship_type;
+        if ($relationship_type == 'one to many') {
+            $associated_records = $this->_fetch_from_child_module($data);
+        } else {
+            $associated_records = $this->_fetch_from_assoc_tbl($data);
+        }
         
         http_response_code(200);
         echo json_encode($associated_records);
     }
 
+    function _fetch_from_child_module($data) {
+        //fetch associated records from child module (this only gets used in one to many)
+        $sql = 'SELECT
+                    [child_module].* 
+                FROM
+                    [parent_module]
+                INNER JOIN
+                    [child_module]
+                ON
+                    [parent_module].id = [child_module].[parent_module]_id 
+                WHERE [parent_module].id = [update_id] 
+                ORDER BY [child_module].[order_by]';
+
+        $parent_module = $data['calling_module'];
+        $child_module = $data['alt_module'];
+        $update_id = $data['update_id'];
+        $bits = $data['bits'];
+        $order_by = $this->_est_order_by($bits);
+
+        $sql = str_replace('[parent_module]', $parent_module, $sql);
+        $sql = str_replace('[child_module]', $child_module, $sql);
+        $sql = str_replace('[update_id]', $update_id, $sql);
+        $sql = str_replace('[order_by]', $order_by, $sql);
+
+        $associated_records = [];
+        $rows = $this->model->query($sql, 'object');
+        foreach($rows as $row) {
+            $row_data['id'] = $row->id;
+            $value = '';
+            foreach($bits as $bit) {
+                $bit = trim($bit);
+                $value.= $row->$bit.' ';
+            }
+
+            $row_data['value'] = trim($value);
+            $associated_records[] = $row_data;
+        }
+
+        return $associated_records;
+    }
+
     function _fetch_from_assoc_tbl($data) {
+        //fetch associated records from assoc table
         $relation_name = $data['relation_name'];
         $calling_module = $data['calling_module'];
         $alt_module = $data['alt_module'];
         $update_id = $data['update_id']; //the update id for the calling module 
-        $bits = explode(',', $data['identifier_column']);
+        $bits = $data['bits'];
         $order_by = $this->_est_order_by($bits);
 
         $sql = 'SELECT
@@ -276,7 +325,39 @@ class Module_relations extends Trongate {
     }
 
     function _fetch_available_options_one_to_many($data) {
-        echo 'fetch available options for one to many'; die();
+        //select * from child_module where fk != update_id
+        $parent_module = $data['calling_module'];
+        $child_module = $data['alt_module'];
+        $identifier_column = $data['associated_module']->identifier_column;
+        $bits = explode(',', $identifier_column);
+        $order_by = $this->_est_order_by($bits);
+        $update_id = $data['update_id'];
+
+        $sql = 'SELECT * from [child_module] 
+                WHERE [parent_module]_id != [update_id] 
+                ORDER BY [order_by]';
+
+        $sql = str_replace('[parent_module]', $parent_module, $sql);
+        $sql = str_replace('[child_module]', $child_module, $sql);
+        $sql = str_replace('[order_by]', $order_by, $sql);
+        $sql = str_replace('[update_id]', $update_id, $sql);
+
+        $available_records = [];
+        $rows = $this->model->query($sql, 'object');
+
+        foreach($rows as $row) {
+            $row_data['key'] = $row->id;
+            $value = '';
+            foreach($bits as $bit) {
+                $bit = trim($bit);
+                $value.= $row->$bit.' ';
+            }
+
+            $row_data['value'] = trim($value);
+            $available_records[] = $row_data;
+        }
+
+        return $available_records;
     }
 
     function _fetch_available($sql, $data) {
@@ -422,6 +503,39 @@ class Module_relations extends Trongate {
 
             }
 
+        }
+
+        return $options;
+    }
+
+    function _get_parent_options($parent_module_name, $identifier_column, $selected_key) {
+
+        $options = [];
+        $sql = 'select id, '.$identifier_column.' from '.$parent_module_name.' order by '.$identifier_column;
+        $rows = $this->model->query($sql, 'object');
+
+        if (($selected_key == '') || ($selected_key == 0) || ($selected_key == '0')) {
+            $options[''] = 'Select...';
+        }
+
+        $bits =  explode(',', $identifier_column);
+
+        foreach ($rows as $row) {
+            $identifier_column_str = '';
+
+            foreach($bits as $bit) {
+                $bit = trim($bit);
+                $identifier_column_str.= $row->$bit.' ';
+            }
+
+            $identifier_column_str = trim($identifier_column_str);
+
+            if ($selected_key == $row->id) {
+                $options[0] = strtoupper('*** Disassociate with '.$identifier_column_str.' ***');
+                $options[$selected_key] = $identifier_column_str;
+            } else {
+                $options[$row->id] = $identifier_column_str;
+            }
         }
 
         return $options;
