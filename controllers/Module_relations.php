@@ -370,4 +370,53 @@ class Module_relations extends Trongate {
 
     }
 
+    function _fetch_options($selected_key, $calling_module_name, $alt_module_name) {
+
+        $options = [];
+
+        if (($selected_key == '') || ($selected_key == 0) || ($selected_key == '0')) {
+            $options[''] = 'Select...';
+        }
+
+        $relation_settings = $this->_get_relation_settings($calling_module_name, $alt_module_name);
+
+        //get the alt module idenfifier column
+        if ($relation_settings[0]->module_name == $alt_module_name) {
+            $identifier_column = $relation_settings[0]->identifier_column;
+            $foreign_key = $relation_settings[1]->module_name.'_id';
+        } else {
+            $identifier_column = $relation_settings[1]->identifier_column;
+            $foreign_key = $relation_settings[0]->module_name.'_id';
+        }
+
+        $relationship_type = $relation_settings[2]->relationship_type;
+
+        if ($relationship_type == 'one to many') {
+            $options = $this->_get_parent_options($alt_module_name, $identifier_column, $selected_key); 
+        } else {
+
+            $sql = 'select id, '.$identifier_column.', '.$foreign_key.' from '.$alt_module_name.' order by '.$identifier_column;
+            $rows = $this->model->query($sql, 'object');
+
+            foreach ($rows as $row) {
+
+                if ($row->$foreign_key == 0) {
+                    $row_desc = $row->$identifier_column;
+                    $options[$row->id] = $row_desc;
+                }
+
+                if ($selected_key == $row->id) {
+                    $first_option[] = $row->$identifier_column;
+                    $row_label = $row->$identifier_column;
+                    $options[$selected_key] = $row_label;
+                    $options[0] = strtoupper('*** Disassociate with '.$row_label.' ***');
+                }
+
+            }
+
+        }
+
+        return $options;
+    }
+
 }
