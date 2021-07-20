@@ -4,7 +4,6 @@ class Module_relations extends Trongate {
     function _draw_summary_panel($alt_module_name, $token) {
         $calling_module_name = segment(1);
         $relation_settings = $this->_get_relation_settings($calling_module_name, $alt_module_name);
-
         if ($relation_settings == false) {
             echo '<p style="color: red;">Could not find module relation with '.$alt_module_name.' module!</p>';
         } else {
@@ -130,6 +129,46 @@ class Module_relations extends Trongate {
         return $associated_records;
     }
 
+    function _make_sure_table_exists($data) {
+        $params['table_name'] = $data['relation_name'];
+        $sql = 'SHOW TABLES LIKE :table_name';
+        $rows = $this->model->query_bind($sql, $params, 'object');
+
+        if(count($rows) == 0) {
+            $filename = str_replace('associated_', '', $params['table_name']).'.json';
+            $dirpath = APPPATH.'modules/module_relations/assets/module_relations';
+            $settings_file_path = $dirpath.'/'.$filename;
+
+            if (!file_exists($settings_file_path)) {
+                http_response_code(401);
+                die();
+            }
+
+            $relation_settings = json_decode(file_get_contents($settings_file_path));
+            $column_name_a = $relation_settings[0]->module_name.'_id';
+            $column_name_b = $relation_settings[1]->module_name.'_id';
+            $table_name = $params['table_name'];
+
+            $queries[] = 'CREATE TABLE `'.$table_name.'` (
+              `id` int(11) NOT NULL,
+              `'.$column_name_a.'` int(11) NOT NULL DEFAULT 0,
+              `'.$column_name_b.'` int(11) NOT NULL DEFAULT 0
+            )';
+
+            $queries[] = 'ALTER TABLE `'.$table_name.'`
+              ADD PRIMARY KEY (`id`)';
+
+            $queries[] = 'ALTER TABLE `'.$table_name.'`
+              MODIFY `id` int(11) NOT NULL AUTO_INCREMENT';
+
+            $queries[] = 'COMMIT';
+
+            foreach($queries as $query) {
+                $this->model->query($query);
+            }
+        }
+    }
+
     function _fetch_from_assoc_tbl($data) {
         //fetch associated records from assoc table
         $relation_name = $data['relation_name'];
@@ -138,6 +177,8 @@ class Module_relations extends Trongate {
         $update_id = $data['update_id']; //the update id for the calling module 
         $bits = $data['bits'];
         $order_by = $this->_est_order_by($bits);
+
+        $this->_make_sure_table_exists($data);
 
         $sql = 'SELECT
                     [relation_name].id as __id,
@@ -302,7 +343,7 @@ class Module_relations extends Trongate {
                 RIGHT OUTER JOIN
                     [alt_module]
                 ON
-                    [relation_name].drivers_id = [alt_module].id';
+                    [relation_name].[alt_module]_id = [alt_module].id';
 
         $alt_records = $this->_fetch_available($sql, $data);
 
