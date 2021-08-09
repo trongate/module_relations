@@ -48,7 +48,7 @@
 </div>
 
 <script>
-window.onload = function() {
+window.addEventListener('load', function() {
     fetchAssociatedRecords('<?= $relation_name ?>', '<?= $update_id ?>');
-}
+})
 </script>

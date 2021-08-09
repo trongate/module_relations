@@ -445,9 +445,19 @@ class Module_relations extends Trongate {
 
         $relation_name = $posted_data['relationName'];
         $calling_module_name = $posted_data['callingModule'];
-        $target_str = str_replace($calling_module_name, '', $relation_name);
-        $target_str = substr($target_str, 11, strlen($target_str));
-        $alt_module_name = str_replace('_and_', '', $target_str);
+
+        $ditch = 'associated_'.$calling_module_name.'_and_';
+        $strpos = strpos($relation_name, $ditch);
+
+        if (is_numeric($strpos)) {
+            $alt_module_name = str_replace($ditch, '', $relation_name);
+        } else {
+            //associated_books_sizes_and_books
+            $relation_name = substr($relation_name, 11, strlen($relation_name));
+            $end_pos = strlen($relation_name) - (strlen($calling_module_name) + 5);
+            $alt_module_name = substr($relation_name, 0, $end_pos);
+        }
+
         $relation_settings = $this->_get_relation_settings($calling_module_name, $alt_module_name);
         $relationship_type = $relation_settings[2]->relationship_type;
         $first_module = $relation_settings[0];
