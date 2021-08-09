@@ -453,9 +453,9 @@ class Module_relations extends Trongate {
             $alt_module_name = str_replace($ditch, '', $relation_name);
         } else {
             //associated_books_sizes_and_books
-            $relation_name = substr($relation_name, 11, strlen($relation_name));
-            $end_pos = strlen($relation_name) - (strlen($calling_module_name) + 5);
-            $alt_module_name = substr($relation_name, 0, $end_pos);
+            $relation_str = substr($relation_name, 11, strlen($relation_name));
+            $end_pos = strlen($relation_str) - (strlen($calling_module_name) + 5);
+            $alt_module_name = substr($relation_str, 0, $end_pos);
         }
 
         $relation_settings = $this->_get_relation_settings($calling_module_name, $alt_module_name);
