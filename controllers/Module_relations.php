@@ -63,6 +63,57 @@ class Module_relations extends Trongate {
         return $relation_name;
     }
 
+    function _add_associated_records_to_array($rows, $data) {
+        $relation_settings = $this->_get_relation_settings($data['calling_module'], $data['alt_module']);
+        $table_name = $this->_build_relation_name($relation_settings);
+
+        //get all of the rows a new property with an empty array - representing assigned options
+        $target_column_1 = $data['alt_module'];
+        foreach($rows as $key => $value) {
+            $rows[$key]->$target_column_1 = [];
+        }
+
+        //rebuild $rows but with keys that match ids
+        $all_rows = [];
+        foreach($rows as $row) {
+            $all_rows[$row->id] = $row;
+        }
+
+        //loop through the assigned records
+        $target_column_2 = $data['alt_module'].'_id';
+        $target_column_3 = $data['calling_module'].'_id';
+        $assoc_records = $this->model->get('id', $table_name);
+        foreach($assoc_records as $assoc_record) {
+            if (isset($all_rows[$assoc_record->$target_column_3])) {
+                $assigned_records_array = $all_rows[$assoc_record->$target_column_3]->$target_column_1;
+                $assigned_records_array[] = $assoc_record->$target_column_2;
+                $all_rows[$assoc_record->$target_column_3]->$target_column_1 = $assigned_records_array;
+            }
+        }
+
+        //get full and meaningful possible associated options
+        $all_associated_options = [];
+        $rows_alt = $this->model->get('id', $data['alt_module']);
+        foreach($rows_alt as $row) {
+            $all_associated_options[$row->id] = $row;
+        }
+
+        //add more meaningful options to 'all_rows'
+        foreach($all_rows as $key => $value) {
+            if (isset($value->$target_column_1)) {
+                $new_array = [];
+                $old_array = $value->$target_column_1;
+                foreach($old_array as $array_row) {
+                    $new_array[] = $all_associated_options[$array_row];
+                }
+                $all_rows[$key]->$target_column_1 = $new_array;
+            }
+        }
+
+        $rows = (isset($all_rows)) ? $all_rows : $rows;
+        return $rows;
+    }
+
     function fetch_associated_records() {
         api_auth();
         $posted_data = $this->_get_posted_data();
@@ -335,15 +386,9 @@ class Module_relations extends Trongate {
 
     function _fetch_available_options_many_to_many($data) {
         //return records from the 'alt_module' that have not yet been assigned to THIS particular module
-        $sql = 'SELECT
-                    [relation_name].[calling_module]_id as calling_module_id,
-                    [alt_module].* 
-                FROM
-                    [relation_name]
-                RIGHT OUTER JOIN
-                    [alt_module]
-                ON
-                    [relation_name].[alt_module]_id = [alt_module].id';
+        $sql = 'SELECT *
+                FROM [alt_module]
+                ORDER BY [alt_module].[order_by]';        
 
         $alt_records = $this->_fetch_available($sql, $data);
 
